@@ -4,6 +4,18 @@
 using Markdown
 using InteractiveUtils
 
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    #! format: off
+    quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+    #! format: on
+end
+
 # ╔═╡ 532e016a-0a56-4154-a1c5-88241d45e6f7
 begin
 	using Markdown
@@ -14,6 +26,7 @@ begin
 	using Optim
 	using Plots
 	using LaTeXStrings
+	using StatsBase
 end
 
 # ╔═╡ e4310c64-131b-4c9c-987d-94c71bf64cf9
@@ -26,21 +39,27 @@ md"""
 ### Define toy model: generate synthetic data
 """
 
+# ╔═╡ a2473f38-cccd-40f5-943c-fc88145483a6
+md"""
+Let's set up the true resonance and background parameters (interactive):
+- m₁ = $(@bind m1 Slider(0.8:0.01:1.2, show_value=true, default=1.0)) GeV,
+- Γ₁ = $(@bind g1 Slider(0.05:0.01:0.2, show_value=true, default=0.1)) GeV,
+- m₂ = $(@bind m2 Slider(1.4:0.01:1.8, show_value=true, default=1.6)) GeV,
+- Γ₂ = $(@bind g2 Slider(0.05:0.01:0.25, show_value=true, default=0.15)) GeV.
+"""
+
+# ╔═╡ b2bddec2-527c-4747-80ed-5ab845e8a5a8
+function breit_wigner(m, g, e)
+    return (g^2) ./ ((e .- m).^2 .+ (g^2)/4)
+end
+
+# ╔═╡ f4072990-ca9c-4eb8-9551-66bba0190d7d
+background(e) = 0.5 * exp.(-2 .* (e .- 0.5))
+
 # ╔═╡ 4a87dff9-5c83-468b-9ec5-be4f2ce650a1
 begin
 	# Energy range
 	e = collect(0.5:0.01:2.5)
-	
-	# True parameters for generation
-	m1, g1 = 1.0, 0.1
-	m2, g2 = 1.6, 0.15
-	
-	function breit_wigner(m, g, e)
-	    return (g^2) ./ ((e .- m).^2 .+ (g^2)/4)
-	end
-	
-	# Background function
-	background(e) = 0.5 * exp.(-2 .* (e .- 0.5))
 	
 	# True spectrum
 	y_true = breit_wigner(m1, g1, e) .+ breit_wigner(m2, g2, e) .+ background(e)
@@ -49,9 +68,12 @@ begin
 	y_obs = y_true .+ 0.05 .* randn(length(e))
 end
 
+# ╔═╡ 18ad5758-3bf1-418d-aef1-d16e3a73f9b8
+y_obs
+
 # ╔═╡ 7ada4621-f820-43d7-91ea-60503b0116fc
 begin
-	stephist(y_obs, label="Simulated data", legend=:topright)
+	stephist(e, weights=y_obs, bins=200, label="Simulated data", legend=:topright, normalize=true, seriestype=:steppre, lw=0.5)
 	plot!(e, y_true, label="True spectrum", lw=2)
 end
 
@@ -78,7 +100,7 @@ end
 
 # ╔═╡ f71b6ac1-704a-475b-9701-45a4d72244ea
 begin
-	stephist(e, y_obs, label="Data", legend=:topright)
+	stephist(e, weights=y_obs, bins=200, label="Simulated data", legend=:topright, normalize=true, seriestype=:steppre, lw=0.5)
 	plot!(e, naive_model(pfit_naive, e), label="Naive fit", lw=2)
 end
 
@@ -126,7 +148,7 @@ end
 
 # ╔═╡ 944b07f3-c70d-4bed-b993-46f4263edfff
 begin
-	stephist(e, y_obs, label="Data", legend=:topright)
+	stephist(e, weights=y_obs, bins=200, label="Simulated data", legend=:topright, normalize=true, seriestype=:steppre, lw=0.5)
 	plot!(e, k_model(pfit_k, e), label="K-matrix fit", lw=2)
 end
 
@@ -159,6 +181,7 @@ Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
 Distributions = "~0.25.118"
@@ -167,6 +190,7 @@ Optim = "~1.11.0"
 Plots = "~1.40.11"
 PlutoTeachingTools = "~0.3.1"
 PlutoUI = "~0.7.62"
+StatsBase = "~0.34.4"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -175,7 +199,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.11.3"
 manifest_format = "2.0"
-project_hash = "b0c1d15b8f5c5f68d0b6a416c274b49a56d1aa63"
+project_hash = "911edbf63e19bf0f6ed97f85a94463be036e10c9"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "e2478490447631aedba0823d4d7a80b2cc8cdb32"
@@ -1720,7 +1744,11 @@ version = "1.4.1+2"
 # ╠═532e016a-0a56-4154-a1c5-88241d45e6f7
 # ╠═e4310c64-131b-4c9c-987d-94c71bf64cf9
 # ╟─eb79fefc-b951-4cf3-9975-2397decce69c
+# ╠═a2473f38-cccd-40f5-943c-fc88145483a6
+# ╠═b2bddec2-527c-4747-80ed-5ab845e8a5a8
+# ╠═f4072990-ca9c-4eb8-9551-66bba0190d7d
 # ╠═4a87dff9-5c83-468b-9ec5-be4f2ce650a1
+# ╠═18ad5758-3bf1-418d-aef1-d16e3a73f9b8
 # ╠═7ada4621-f820-43d7-91ea-60503b0116fc
 # ╟─6a3c61fd-d977-491d-9d35-090ddb536ac6
 # ╠═b8629b10-4093-4cad-8805-2547e44b9f8a
